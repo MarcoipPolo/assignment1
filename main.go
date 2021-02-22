@@ -8,19 +8,19 @@ import (
 	"os"
 )
 
-type Article struct {
+type article struct {
 	Title   string `json:"Title"`
 	Desc    string `json:"Desc"`
 	Content string `json:"Content"`
 }
 
-type Articles []Article
+type articles []article
 
-func AllArticles(rw http.ResponseWriter, r *http.Request) {
-	articles := Articles{
-		Article{Title: "Article 1", Desc: "Description 1", Content: " Content 1"},
-		Article{Title: "Article 2", Desc: "Description 2", Content: " Content 2"},
-		Article{Title: "Article 3", Desc: "Description 3", Content: " Content 3"},
+func allArticles(rw http.ResponseWriter, r *http.Request) {
+	articles := articles{
+		article{Title: "Article 1", Desc: "Description 1", Content: " Content 1"},
+		article{Title: "Article 2", Desc: "Description 2", Content: " Content 2"},
+		article{Title: "Article 3", Desc: "Description 3", Content: " Content 3"},
 	}
 	fmt.Println("Endpoint Hint: All Articles Endpoint")
 
@@ -36,7 +36,7 @@ func homePage(rw http.ResponseWriter, r *http.Request) {
 func handelRequests() {
 	/// We have two endpoints, for the main root, like localhost:4747, it runs homepage function and for localhost:4747/articles it executes AllArticles function
 	http.HandleFunc("/", homePage)
-	http.HandleFunc("/articles", AllArticles)
+	http.HandleFunc("/articles", allArticles)
 	log.Fatal(http.ListenAndServe(getport(), nil))
 }
 
