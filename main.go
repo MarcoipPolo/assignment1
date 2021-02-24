@@ -46,8 +46,13 @@ func diagnostics(rw http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(rw, "Hello Prog2005, Here we go")
 }
 
+func homePage(rw http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(rw, "This it the home page. Welcome!")
+}
+
 func handelRequests() {
 	/// We have two endpoints, for the main root, like localhost:4747, it runs homepage function and for localhost:4747/articles it executes AllArticles function
+	http.HandleFunc("/", homePage)
 	http.HandleFunc("/exchange/v1/exchangehistory/", exchangeHistory)
 	http.HandleFunc("/exchange/v1/exchangeborder/", exchangeBorder)
 	http.HandleFunc("/exchange/v1/diag/", diagnostics)
