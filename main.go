@@ -16,7 +16,7 @@ type article struct {
 
 type articles []article
 
-func allArticles(rw http.ResponseWriter, r *http.Request) {
+func exchangeHistory(rw http.ResponseWriter, r *http.Request) {
 	articles := articles{
 		article{Title: "Article 1", Desc: "Description 1", Content: " Content 1"},
 		article{Title: "Article 2", Desc: "Description 2", Content: " Content 2"},
@@ -29,14 +29,29 @@ func allArticles(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(articles)
 }
 
-func homePage(rw http.ResponseWriter, r *http.Request) {
+func exchangeBorder(rw http.ResponseWriter, r *http.Request) {
+	articles := articles{
+		article{Title: "Article 1", Desc: "Description 1", Content: " Content 1"},
+		article{Title: "Article 2", Desc: "Description 2", Content: " Content 2"},
+		article{Title: "Article 3", Desc: "Description 3", Content: " Content 3"},
+	}
+	fmt.Println("Endpoint Hint: All Articles Endpoint")
+
+	rw.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(rw).Encode(articles)
+}
+
+func diagnostics(rw http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(rw, "Hello Prog2005, Here we go")
 }
 
 func handelRequests() {
 	/// We have two endpoints, for the main root, like localhost:4747, it runs homepage function and for localhost:4747/articles it executes AllArticles function
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/articles", allArticles)
+	http.HandleFunc("/exchange/v1/exchangehistory/", exchangeHistory)
+	http.HandleFunc("/exchange/v1/exchangeborder/", exchangeBorder)
+	http.HandleFunc("/exchange/v1/diag/", diagnostics)
+
 	log.Fatal(http.ListenAndServe(getport(), nil))
 }
 
@@ -44,11 +59,11 @@ func main() {
 	handelRequests()
 }
 
-//// Get Port if it is set by environment, else use a defined one like "4747"
+//// Get Port if it is set by environment, else use a defined one like "8080"
 func getport() string {
 	var port = os.Getenv("PORT")
 	if port == "" {
-		port = "4747"
+		port = "8080"
 	}
 	return ":" + port
 }
