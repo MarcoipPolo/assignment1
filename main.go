@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // A Response struct to restcountries
@@ -207,6 +208,24 @@ func exchangeBorder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
+var startTime time.Time
+
+func uptime() time.Duration {
+	fmt.Println(startTime)
+	return time.Since(startTime)
+}
+
+func shortDur(d time.Duration) string {
+	s := d.String()
+	if strings.HasSuffix(s, "m0s") {
+		s = s[:len(s)-2]
+	}
+	if strings.HasSuffix(s, "h0m") {
+		s = s[:len(s)-2]
+	}
+	return s
+}
+
 func diagnostics(w http.ResponseWriter, r *http.Request) {
 
 	responseEx, err := http.Get("https://api.exchangeratesapi.io")
@@ -221,7 +240,7 @@ func diagnostics(w http.ResponseWriter, r *http.Request) {
 		os.Exit(1)
 	}
 
-	diagnostic := Diagnostic{ExchangeRateAPI: responseEx.StatusCode, RestCountries: responseCount.StatusCode, Version: "v1"}
+	diagnostic := Diagnostic{ExchangeRateAPI: responseEx.StatusCode, RestCountries: responseCount.StatusCode, Version: "v1", Uptime: shortDur(uptime())}
 
 	w.Header().Set("Content-Type", "application/json")
 
