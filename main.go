@@ -11,18 +11,22 @@ import (
 	"time"
 )
 
-// A Response struct to restcountries
+var startTime time.Time
+
+// Response contains the responses from restcountries
 type Response struct {
 	Country    string       `json:"name"`
 	Currencies []Currency   `json:"currencies"`
 	Border     []string     `json:"borders"`
-	Exchange   ExchangeData `json:exchangedata`
+	Exchange   ExchangeData `json:"exchangedata"`
 }
 
+// Currency contains the currency code responce from restcountries
 type Currency struct {
 	Code string `json:"code"`
 }
 
+// ExchangeData contains data for the individual countries in exchangeborder
 type ExchangeData struct {
 	Rates Rate   `json:"rates"`
 	Name  string `json:"name"`
@@ -30,6 +34,7 @@ type ExchangeData struct {
 	Date  string `json:"date"`
 }
 
+// Rate contains all the values for the different currencies
 type Rate struct {
 	CAD float64 `json:"CAD,omitempty"`
 	HKD float64 `json:"HKD,omitempty"`
@@ -66,10 +71,7 @@ type Rate struct {
 	EUR float64 `json:"EUR,omitempty"`
 }
 
-type Final struct {
-	Rate []Data `json:"rates"`
-}
-
+// Data contains the data for exchangeborder
 type Data struct {
 	Name     string `json:"name"`
 	Currency string `json:"currency"`
@@ -77,6 +79,7 @@ type Data struct {
 	Base     string `json:"base"`
 }
 
+// Diagnostic contains the diagnostic data for the api's and uptime
 type Diagnostic struct {
 	ExchangeRateAPI int    `json:"exchangerateapi"`
 	RestCountries   int    `json:"restcountries"`
@@ -84,137 +87,112 @@ type Diagnostic struct {
 	Uptime          string `json:"uptime"`
 }
 
-//// Gets the exchange history of a provided country with provided start and end date
+// getBody returns the get request received from the api
+func getBody(req string) []byte {
+	respcurr, err := http.Get(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	body, err := ioutil.ReadAll(respcurr.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return body
+}
+
+// Gets the exchange history of a provided country with provided start and end date
 func exchangeHistory(w http.ResponseWriter, r *http.Request) {
+	// Splits the URL into splices and then to individual strings
 	search := strings.Split(r.URL.Path, "/")
 	country := strings.Join(search[4:5], "")
 	temp := strings.Split(strings.Join(search[5:], ""), "-")
 	startdate := strings.Join(temp[:3], "-")
 	enddate := strings.Join(temp[3:], "-")
 
+	// Makes the get request to get the currency of said country and stores it in the struct
 	var req = "https://restcountries.eu/rest/v2/name/" + country + "?fields=currencies"
+	var currency []Response
+	json.Unmarshal(getBody(req), &currency)
 
-	respcurr, err := http.Get(req)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	bodycurr, err := ioutil.ReadAll(respcurr.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	var curr []Response
-	json.Unmarshal(bodycurr, &curr)
-
-	req = "https://api.exchangeratesapi.io/history?start_at=" + startdate + "&end_at=" + enddate + "&symbols=" + curr[0].Currencies[0].Code
-	if curr[0].Currencies[0].Code == "EUR" {
+	// Makes a get request based on the currency code, startdate and enddate
+	req = "https://api.exchangeratesapi.io/history?start_at=" + startdate + "&end_at=" + enddate + "&symbols=" + currency[0].Currencies[0].Code
+	if currency[0].Currencies[0].Code == "EUR" {
 		req += "&base=USD"
 	}
-
-	resp, err := http.Get(req)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	exrate := json.RawMessage(body)
+	exrate := json.RawMessage(getBody(req))
 
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(exrate)
 }
 
+// Gets all the borders to a country and their rates
 func exchangeBorder(w http.ResponseWriter, r *http.Request) {
+	// Splits the URL into splices and then gets the country
 	search := strings.Split(r.URL.Path, "/")
 	country := strings.Join(search[4:], "")
 
-	url := "https://restcountries.eu/rest/v2/name/" + country
+	// Makes the get request and fill the struct
+	var req = "https://restcountries.eu/rest/v2/name/" + country
+	var responseObj []Response
+	json.Unmarshal(getBody(req), &responseObj)
 
-	response, err := http.Get(url)
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
-
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var responseObject []Response
-	json.Unmarshal(responseData, &responseObject)
-
-	var data []Data
+	var excBorder []Data
 	var base string
 
-	for i := 0; i < len(responseObject[0].Border); i++ {
-		Borders := responseObject[0].Border[i]
+	// Loops for each uniqe border and gets that country's data and exchangerate
+	// based on the original country's currency
+	for i := 0; i < len(responseObj[0].Border); i++ {
+		Borders := responseObj[0].Border[i]
 
-		url1 := "https://restcountries.eu/rest/v2/alpha?codes=" + Borders
+		// Gets the country bordering to the original
+		req = "https://restcountries.eu/rest/v2/alpha?codes=" + Borders
+		var responseObjCountry []Response
+		json.Unmarshal(getBody(req), &responseObjCountry)
 
-		responseCountry, err := http.Get(url1)
-		if err != nil {
-			fmt.Print(err.Error())
-			os.Exit(1)
-		}
-
-		responseDataCountry, err := ioutil.ReadAll(responseCountry.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var responseObjectCountry []Response
-		json.Unmarshal(responseDataCountry, &responseObjectCountry)
-
-		url2 := "https://api.exchangeratesapi.io/latest?symbols=" + responseObjectCountry[0].Currencies[0].Code
-		if responseObjectCountry[0].Currencies[0].Code == responseObject[0].Currencies[0].Code {
-			if responseObjectCountry[0].Currencies[0].Code == "EUR" {
-				url2 += "&base=USD"
+		// Gets the currency exchangerate for the country
+		req = "https://api.exchangeratesapi.io/latest?symbols=" + responseObjCountry[0].Currencies[0].Code
+		// if the countries around uses the same currency as the original
+		// compare to some other currency
+		if responseObjCountry[0].Currencies[0].Code == responseObj[0].Currencies[0].Code {
+			if responseObjCountry[0].Currencies[0].Code == "EUR" {
+				req += "&base=USD"
 				base = "USD"
 			} else {
-				url2 += "&base=EUR"
+				req += "&base=EUR"
 				base = "EUR"
 			}
 		} else {
-			url2 += "&base=" + responseObject[0].Currencies[0].Code
-			base = responseObject[0].Currencies[0].Code
+			req += "&base=" + responseObj[0].Currencies[0].Code
+			base = responseObj[0].Currencies[0].Code
 		}
+		var responseObjExchange ExchangeData
+		json.Unmarshal(getBody(req), &responseObjExchange)
 
-		responseExchange, err := http.Get(url2)
-		if err != nil {
-			fmt.Print(err.Error())
-			os.Exit(1)
-		}
+		responseObjCountry[0].Exchange = responseObjExchange
 
-		responseDataExchange, err := ioutil.ReadAll(responseExchange.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var responseObjectExchange ExchangeData
-		json.Unmarshal(responseDataExchange, &responseObjectExchange)
-
-		responseObjectCountry[0].Exchange = responseObjectExchange
-
-		data = append(data, Data{Name: responseObjectCountry[0].Country, Currency: responseObjectCountry[0].Currencies[0].Code, Rate: responseObjectCountry[0].Exchange.Rates, Base: base})
-
+		// Appends the data generated in the for loop to the Data array
+		excBorder = append(excBorder, Data{Name: responseObjCountry[0].Country, Currency: responseObjCountry[0].Currencies[0].Code, Rate: responseObjCountry[0].Exchange.Rates, Base: base})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(data)
+	json.NewEncoder(w).Encode(excBorder)
 }
 
-var startTime time.Time
+// Initializes the time of server start
+func init() {
+	startTime = time.Now()
+}
 
+// returns the duration the server has been running
 func uptime() time.Duration {
-	fmt.Println(startTime)
 	return time.Since(startTime)
 }
 
+// formats the durration output
 func shortDur(d time.Duration) string {
 	s := d.String()
 	if strings.HasSuffix(s, "m0s") {
@@ -226,6 +204,7 @@ func shortDur(d time.Duration) string {
 	return s
 }
 
+// Checks the api's and keeps track of uptime
 func diagnostics(w http.ResponseWriter, r *http.Request) {
 
 	responseEx, err := http.Get("https://api.exchangeratesapi.io")
@@ -247,12 +226,16 @@ func diagnostics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(diagnostic)
 }
 
+// Contains all the links the user can take and how to use them
 func homePage(rw http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(rw, "This it the home page. Welcome!")
+	fmt.Fprintf(rw, "\n/exchange/v1/exchangehistory/{country_name}/{begin_date-end_date}")
+	fmt.Fprintf(rw, "\n/exchange/v1/exchangeborder/{country_name}")
+	fmt.Fprintf(rw, "\n/exchange/v1/diag")
 }
 
+// Handles all of the endpoints
 func handelRequests() {
-	/// We have two endpoints, for the main root, like localhost:4747, it runs homepage function and for localhost:4747/articles it executes AllArticles function
 	http.HandleFunc("/", homePage)
 	http.HandleFunc("/exchange/v1/exchangehistory/", exchangeHistory)
 	http.HandleFunc("/exchange/v1/exchangeborder/", exchangeBorder)
@@ -261,11 +244,12 @@ func handelRequests() {
 	log.Fatal(http.ListenAndServe(getport(), nil))
 }
 
+// Start point of execution
 func main() {
 	handelRequests()
 }
 
-//// Get Port if it is set by environment, else use a defined one like "8080"
+// Get Port if it is set by environment or sets the port to 8080
 func getport() string {
 	var port = os.Getenv("PORT")
 	if port == "" {
